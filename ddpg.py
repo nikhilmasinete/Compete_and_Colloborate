@@ -10,15 +10,13 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 Buffer = int(1e6)
-Batch = 128
+Batch = 256
 Gamma = 0.95
 Tau = 1e-3
 LR_Actor = 1e-4
 LR_Critic = 1e-3
 Weight_Decay = 0.99
 
-Update_every = 20
-Update_times = 10
 
 epsilon = 1.0
 epsilon_decay = 1e-6
@@ -78,7 +76,7 @@ class Agent():
         
 
 class OUNoise:
-    def __init__(self, size, seed, mu=0., theta = 0.15, sigma = 0.2):
+    def __init__(self, size, seed, mu=0.1, theta = 0.15, sigma = 0.1):
         self.mu = mu*np.ones(size)
         self.theta = theta
         self.sigma = sigma
