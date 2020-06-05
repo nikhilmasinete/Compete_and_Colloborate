@@ -6,15 +6,15 @@ import torch
 import torch.nn.functional as F
 import random
 
-BUFFER_SIZE = int(1e5)  # replay buffer size
+BUFFER_SIZE = int(1e6)  # replay buffer size
 BATCH_SIZE = 256      # minibatch size
 GAMMA = 0.99            # discount factor
 TAU = 1e-3              # for soft update of target parameters
-LR_ACTOR = 3e-4         # learning rate of the actor 
-LR_CRITIC = 3e-3        # learning rate of the critic
+LR_ACTOR = 1e-3         # learning rate of the actor 
+LR_CRITIC = 1e-3       # learning rate of the critic
 WEIGHT_DECAY = 0        # L2 weight decay
 num_agents = 2
-Update_every = 2
+Update_every = 1
 Update_times = 1
 
 epsilon = 1.0
@@ -31,7 +31,7 @@ class MADDPG():
         self.discount_factor = discount_factor
         self.tau = tau
         self.iter = 0
-        self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE, num_agents, 2) #defined in the function setup
+        self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE, num_agents) #defined in the function setup
         self.t_step = 0
     
     def act(self, states, noise=0.0):
@@ -94,7 +94,7 @@ class MADDPG():
         self.soft_update(agent.critic_local, agent.critic_target)
         self.soft_update(agent.actor_local, agent.actor_target)
         
-    def soft_update(self, local_model, target_model, tau=8e-2):
+    def soft_update(self, local_model, target_model, tau=1e-2):
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(tau*local_param.data + (1.0 - tau)*target_param.data)
             
@@ -103,7 +103,7 @@ class MADDPG():
 class ReplayBuffer:
     """Fixed-size buffer to store experience tuples."""
 
-    def __init__(self, action_size, buffer_size, batch_size, num_agents, seed):
+    def __init__(self, action_size, buffer_size, batch_size, num_agents, seed=2):
         """Initialize a ReplayBuffer object.
         Params
         ======
