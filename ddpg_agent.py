@@ -12,12 +12,12 @@ import torch.optim as optim
 BUFFER_SIZE = int(1e6)  # replay buffer size
 BATCH_SIZE = 256        # minibatch size
 GAMMA = 0.95            # discount factor
-TAU = 1e-3              # for soft update of target parameters
+TAU = 1e-2              # for soft update of target parameters
 LR_ACTOR = 1e-4         # learning rate of the actor 
-LR_CRITIC = 1e-3        # learning rate of the critic
+LR_CRITIC = 5e-3        # learning rate of the critic
 WEIGHT_DECAY = 0        # L2 weight decay
 
-Update_every = 5
+Update_every = 10
 Update_times = 1
 
 epsilon = 1.0
@@ -70,7 +70,7 @@ class Agent():
             action = self.actor_local(state.unsqueeze(0)).cpu().data.numpy()
         self.actor_local.train()
         if add_noise:
-            action = action + np.maximum(self.epsilon, 0.1)*self.noise.sample()
+            action = action + self.noise.sample()
         return np.clip(action, -1, 1)
 
     def reset(self):
@@ -82,7 +82,6 @@ class Agent():
         where:
             actor_target(state) -> action
             critic_target(state, action) -> Q-value
-
         Params
         ======
             experiences (Tuple[torch.Tensor]): tuple of (s, a, r, s', done) tuples 
@@ -130,7 +129,6 @@ class Agent():
     def soft_update(self, local_model, target_model, tau):
         """Soft update model parameters.
         θ_target = τ*θ_local + (1 - τ)*θ_target
-
         Params
         ======
             local_model: PyTorch model (weights will be copied from)
@@ -143,9 +141,10 @@ class Agent():
 class OUNoise:
     """Ornstein-Uhlenbeck process."""
 
-    def __init__(self, size, seed=2, mu=0., theta=0.2, sigma=0.1):
+    def __init__(self, size, seed=2, mu=0., theta=0.15, sigma=0.2):
         """Initialize parameters and noise process."""
         self.mu = mu * np.ones(size)
+        self.size = size
         self.theta = theta
         self.sigma = sigma
         self.seed = random.seed(seed)
@@ -158,6 +157,6 @@ class OUNoise:
     def sample(self):
         """Update internal state and return it as a noise sample."""
         x = self.state
-        dx = self.theta * (self.mu - x) + self.sigma * np.array([random.random() for i in range(len(x))])
+        dx = self.theta * (self.mu - x) + self.sigma * np.random.standard_normal(self.size)
         self.state = x + dx
         return self.state
