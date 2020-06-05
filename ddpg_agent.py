@@ -141,14 +141,15 @@ class Agent():
 class OUNoise:
     """Ornstein-Uhlenbeck process."""
 
-    def __init__(self, size, seed=2, mu=0., theta=0.15, sigma=0.2):
+    def __init__(self, size, seed=2, mu=0., theta=0.15, sigma=0.5, sigma_decay = 0.99):
         """Initialize parameters and noise process."""
         self.mu = mu * np.ones(size)
         self.size = size
         self.theta = theta
         self.sigma = sigma
         self.seed = random.seed(seed)
-        self.reset()
+        self.sigma_decay = sigma_decay
+        
 
     def reset(self):
         """Reset the internal state (= noise) to mean (mu)."""
@@ -159,4 +160,5 @@ class OUNoise:
         x = self.state
         dx = self.theta * (self.mu - x) + self.sigma * np.random.standard_normal(self.size)
         self.state = x + dx
+        self.sigma = max(0.1, self.sigma*self.sigma_decay)
         return self.state
