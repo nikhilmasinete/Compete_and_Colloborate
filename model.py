@@ -10,7 +10,7 @@ def hidden_init(layer):
 class Actor(nn.Module):
     """Actor (Policy) Model."""
 
-    def __init__(self, state_size, action_size, seed, fc1_units=256, fc2_units=256, fc3_units = 128):
+    def __init__(self, state_size, action_size, seed, fc1_units=512, fc2_units=256, fc3_units = 128):
         """Initialize parameters and build model.
         Params
         ======
@@ -38,7 +38,7 @@ class Actor(nn.Module):
 
     def forward(self, state):
         """Build an actor (policy) network that maps states -> actions."""
-        x = F.relu((self.fc1(state)))
+        x = F.relu(self.bn1(self.fc1(state)))
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
         return torch.tanh(self.fc4(x))
@@ -47,7 +47,7 @@ class Actor(nn.Module):
 class Critic(nn.Module):
     """Critic (Value) Model."""
 
-    def __init__(self, state_size, action_size, seed, fcs1_units=256, fc2_units=256):
+    def __init__(self, state_size, action_size, seed, fcs1_units=512, fc2_units=256):
         """Initialize parameters and build model.
         Params
         ======
@@ -74,7 +74,6 @@ class Critic(nn.Module):
         """Build a critic (value) network that maps (state, action) pairs -> Q-values."""
         i = torch.cat((state, action.float()), dim = 1)
         xs = F.leaky_relu(self.bn1(self.fcs1(i)))
-        x = self.bn1(xs)
-        x = F.leaky_relu(self.fc2(x))
+        x = F.leaky_relu(self.fc2(xs))
         
         return self.fc3(x)
