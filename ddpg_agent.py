@@ -14,7 +14,7 @@ BATCH_SIZE = 256        # minibatch size
 GAMMA = 0.95            # discount factor
 TAU = 1e-2              # for soft update of target parameters
 LR_ACTOR = 1e-4         # learning rate of the actor 
-LR_CRITIC = 5e-3        # learning rate of the critic
+LR_CRITIC = 1e-3        # learning rate of the critic
 WEIGHT_DECAY = 0        # L2 weight decay
 
 Update_every = 10
@@ -141,7 +141,7 @@ class Agent():
 class OUNoise:
     """Ornstein-Uhlenbeck process."""
 
-    def __init__(self, size, seed=2, mu=0., theta=0.15, sigma=0.5, sigma_decay = 0.99):
+    def __init__(self, size, seed=2, mu=0., theta=0.15, sigma=0.1, sigma_decay = 0.99):
         """Initialize parameters and noise process."""
         self.mu = mu * np.ones(size)
         self.size = size

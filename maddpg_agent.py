@@ -1,6 +1,5 @@
 import numpy as np
 from ddpg_agent import Agent
-from buffer import ReplayBuffer
 from collections import deque,namedtuple
 import torch
 import torch.nn.functional as F
@@ -23,9 +22,9 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class MADDPG():
     def __init__(self, state_size, action_size, discount_factor=0.95, tau=0.02):
-        super(MADDPG, self).__init__()
-        self.maddpg = [Agent(state_size,action_size,2),
-                      Agent(state_size,action_size,2)]
+       
+        self.num_agents = 2
+        self.maddpg = [Agent(state_size,action_size,2) for i in range(self.num_agents)]
         self.state_size = state_size
         self.action_size = action_size
         self.discount_factor = discount_factor
@@ -46,49 +45,38 @@ class MADDPG():
         self.memory.add(state, action, reward, next_state, done)
         self.t_step = (self.t_step + 1) % Update_every
         if len(self.memory) > Batch and self.t_step == 0:
+            experiences = self.memory.sample()
             for _ in range(Update_times):
-                experiences = self.memory.sample()
+                
                 [self.learn(experiences, agent, gamma = 0.99) for agent in range(2)]
     def learn(self, experiences, agent_number, gamma):
         states, actions, rewards, next_states, dones = experiences
-        actions = actions.view(2*BATCH_SIZE,2)
-        states_1 = states[agent_number:len(states):2]
-        next_states_1 = next_states[agent_number:len(states):2]
-        rewards_1 = rewards
-        dones_1 = dones
-        all_states = torch.cat((states[0:len(states):2], states[1:len(states):2]), dim = 1)
-        all_actions = torch.cat((actions[0:len(actions):2], actions[1:len(actions):2]), dim = 1)
-        all_next_states = torch.cat((next_states[0:len(next_states):2], next_states[1:len(next_states):2]), dim = 1)
-        
-#        actions_1 = actions[agent_number:len(states):2].view(256,2)
         agent = self.maddpg[agent_number]
-        agent.critic_optimizer.zero_grad()
+        all_states = torch.cat(states, dim=1).to(device)
+        all_next_states = torch.cat(next_states, dim=1).to(device)
+        all_actions = torch.cat(actions, dim=1).to(device)
         
-        all_next_actions = torch.cat((self.maddpg[agent_number].actor_target(next_states[0:len(actions):2]), self.maddpg[agent_number].actor_target(next_states[1:len(actions):2])), dim = 1)
-        # Critic training
-        critic_input = torch.cat((all_next_states, all_next_actions), dim = 1).to(device)
-
-        Q_targets_next = agent.critic_target(all_states, all_actions).detach()
-        Q_targets = rewards_1[:,agent_number].view(BATCH_SIZE,1) + gamma*Q_targets_next*(1-dones_1[:,agent_number].view(BATCH_SIZE,1))
-
-        Q_expected = agent.critic_local(all_states, all_actions)
-        critic_loss = F.mse_loss(Q_expected, Q_targets)
+        next_actions = [actions[index].clone() for index in range(2)]
+        next_actions[agent_number] = agent.actor_target(next_states[agent_number])
+        all_next_actions = torch.cat(next_actions, dim=1).to(device)
+        
+        Q_target_next = agent.critic_target(all_next_states,all_next_actions)
+        Q_target = rewards[agent_number] + GAMMA * Q_target_next *(1-dones[agent_number])
+        Q_expected = agent.critic_local(all_states,all_actions)
+        critic_loss = F.mse_loss(Q_expected,Q_target)
         agent.critic_optimizer.zero_grad()
         critic_loss.backward()
         torch.nn.utils.clip_grad_norm_(agent.critic_local.parameters(), 1)
         agent.critic_optimizer.step()
         
-        # Actor training
-        
-        states_1 = states_1.cpu().data.numpy()
-        all_actions_pred =  torch.cat((self.maddpg[agent_number].actor_local(states[0:len(actions):2]), self.maddpg[agent_number].actor_local(states[1:len(actions):2])), dim = 1)
-        
-        
-
-        actor_loss = -agent.critic_local(all_states, all_actions_pred).mean()
+        actions_pred = [actions[index].clone() for index in range(2)]
+        actions_pred[agent_number] = agent.actor_local(states[agent_number])
+        all_actions_pred = torch.cat(actions_pred, dim=1).to(device)
         
         agent.actor_optimizer.zero_grad()
+        actor_loss = -agent.critic_local(all_states, all_actions_pred).mean()
         actor_loss.backward()
+        torch.nn.utils.clip_grad_norm_(agent.actor_local.parameters(), 1)
         agent.actor_optimizer.step()
         
         self.soft_update(agent.critic_local, agent.critic_target)
@@ -127,12 +115,11 @@ class ReplayBuffer:
         experiences = random.sample(self.memory, k=self.batch_size)
 
 
-        states = torch.from_numpy(np.vstack([e.states for e in experiences if e is not None])).float().to(device)
-        states_t = torch.from_numpy(np.vstack([e.states for e in experiences if e is not None])).float().to(device)
-        actions = torch.from_numpy(np.vstack([e.actions for e in experiences if e is not None])).float().to(device)
-        rewards = torch.from_numpy(np.vstack([e.rewards for e in experiences if e is not None])).float().to(device)
-        next_states = torch.from_numpy(np.vstack([e.next_states for e in experiences if e is not None])).float().to(device)
-        dones = torch.from_numpy(np.vstack([e.dones for e in experiences if e is not None]).astype(np.uint8)).float().to(device)
+        states = [torch.from_numpy(np.vstack([e.states[index] for e in experiences if e is not None])).float().to(device) for index in range(num_agents)]
+        actions = [torch.from_numpy(np.vstack([e.actions[index] for e in experiences if e is not None])).float().to(device) for index in range(num_agents)]
+        rewards = [torch.from_numpy(np.vstack([e.rewards[index] for e in experiences if e is not None])).float().to(device) for index in range(num_agents)]
+        next_states = [torch.from_numpy(np.vstack([e.next_states[index] for e in experiences if e is not None])).float().to(device) for index in range(num_agents)]
+        dones = [torch.from_numpy(np.vstack([e.dones[index] for e in experiences if e is not None]).astype(np.uint8)).float().to(device) for index in range(num_agents)]
         
         return (states, actions, rewards, next_states, dones)
 
